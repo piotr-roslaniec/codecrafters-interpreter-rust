@@ -1,11 +1,44 @@
+mod lexer;
+mod reporter;
+mod scanner;
+
+use crate::lexer::Token;
+use crate::reporter::Reporter;
+use crate::scanner::Scanner;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, BufRead};
+
+struct Lox {
+    reporter: Reporter,
+    tokens: Vec<Token>,
+}
+
+impl Lox {
+    pub fn new(source: &str) -> Self {
+        let reporter = Reporter::new();
+        let mut scanner = Scanner::new(source, &reporter);
+        scanner.scan_tokens();
+        Self {
+            reporter,
+            tokens: scanner.tokens,
+        }
+    }
+
+    pub fn run(&self) -> String {
+        let tokens: Vec<String> = self.tokens.iter().map(|t| t.to_string()).collect();
+        tokens.join(" ")
+    }
+
+    pub fn had_error(&self) -> bool {
+        !self.reporter.errors.is_empty()
+    }
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        writeln!(io::stderr(), "Usage: {} tokenize <filename>", args[0]).unwrap();
+        eprintln!("Usage: {} tokenize <filename>", args[0]);
         return;
     }
 
@@ -17,21 +50,43 @@ fn main() {
             // You can use print statements as follows for debugging, they'll be visible when running tests.
             // writeln!(io::stderr(), "Logs from your program will appear here!").unwrap();
 
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
-                String::new()
-            });
-
-            // Uncomment this block to pass the first stage
-            if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
-            } else {
-                println!("EOF  null"); // Placeholder, remove this line when implementing the scanner
+            let file = read_file(filename);
+            let lox = Lox::new(&file);
+            for token in lox.tokens.iter() {
+                println!("{}", token);
             }
         }
+        "run" => {
+            let file = read_file(filename);
+            let lox = Lox::new(&file);
+            let result = lox.run();
+            if lox.had_error() {
+                std::process::exit(65);
+            }
+            println!("< {}", result);
+        }
+        "run-prompt" => loop {
+            println!(">");
+            let stdin = io::stdin();
+            let mut handle = stdin.lock();
+            let mut input = String::new();
+            handle.read_line(&mut input).unwrap();
+            if input == *"" {
+                break;
+            }
+            let lox = Lox::new(&input);
+            let result = lox.run();
+            println!("< {}", result);
+        },
         _ => {
-            writeln!(io::stderr(), "Unknown command: {}", command).unwrap();
-            return;
+            eprintln!("Unknown command: {}", command);
         }
     }
+}
+
+fn read_file(filename: &String) -> String {
+    fs::read_to_string(filename).unwrap_or_else(|_| {
+        eprintln!("Failed to read file {}", filename);
+        String::new()
+    })
 }
