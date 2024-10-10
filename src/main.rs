@@ -16,11 +16,10 @@ struct Lox {
 
 impl Lox {
     pub fn new(source: &str) -> Self {
-        let reporter = Reporter::new();
-        let mut scanner = Scanner::new(source, &reporter);
+        let mut scanner = Scanner::new(source);
         scanner.scan_tokens();
         Self {
-            reporter,
+            reporter: scanner.reporter,
             tokens: scanner.tokens,
         }
     }
@@ -47,13 +46,13 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
-            // writeln!(io::stderr(), "Logs from your program will appear here!").unwrap();
-
             let file = read_file(filename);
             let lox = Lox::new(&file);
-            for token in lox.tokens.iter() {
+            for token in &lox.tokens {
                 println!("{}", token);
+            }
+            if lox.had_error() {
+                std::process::exit(65);
             }
         }
         "run" => {

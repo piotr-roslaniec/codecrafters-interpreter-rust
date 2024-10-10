@@ -1,4 +1,3 @@
-#[derive(Clone)]
 pub struct Reporter {
     pub errors: Vec<String>,
 }
@@ -12,7 +11,7 @@ impl Reporter {
     }
 
     fn report(&mut self, line: usize, location: &str, message: &str) {
-        let error = format!("[line {line}] Error {location}: {message}");
+        let error = format!("[line {line}] Error{location}: {message}");
         eprintln!("{}", error);
         self.errors.push(error)
     }

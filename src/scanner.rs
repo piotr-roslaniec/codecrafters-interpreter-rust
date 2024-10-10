@@ -3,7 +3,7 @@ use crate::reporter::Reporter;
 
 pub struct Scanner {
     source: String,
-    reporter: Reporter,
+    pub reporter: Reporter,
     pub tokens: Vec<Token>,
     start: usize,
     current: usize,
@@ -11,10 +11,10 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(source: &str, reporter: &Reporter) -> Self {
+    pub fn new(source: &str) -> Self {
         Self {
             source: source.to_string(),
-            reporter: reporter.clone(),
+            reporter: Reporter::new(),
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -75,9 +75,8 @@ impl Scanner {
 mod test {
     use super::*;
 
-    fn scan(source: &String) -> Vec<Token> {
-        let reporter = Reporter::new();
-        let mut scanner = Scanner::new(source, &reporter);
+    fn scan(source: &str) -> Vec<Token> {
+        let mut scanner = Scanner::new(source);
         scanner.scan_tokens();
         scanner.tokens
     }
@@ -112,6 +111,20 @@ mod test {
                 Token::new(TokenType::LeftParen, "(", None, 1),
                 Token::new(TokenType::RightParen, ")", None, 1),
                 Token::new(TokenType::Eof, "", None, 1)
+            ]
+        );
+    }
+
+    #[test]
+    fn makes_errors_for_unexpected_characters() {
+        let source = ",.$(#";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+        assert_eq!(
+            scanner.reporter.errors,
+            vec![
+                "[line 1] Error: Unexpected character: $",
+                "[line 1] Error: Unexpected character: #"
             ]
         );
     }
