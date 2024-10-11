@@ -1,4 +1,4 @@
-use std::fmt::Formatter;
+use std::fmt::{format, Formatter};
 
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
@@ -98,16 +98,35 @@ impl std::fmt::Display for TokenType {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Literal {
+    String(String),
+    Number(f64),
+    Null,
+}
+
+impl std::fmt::Display for Literal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use Literal::*;
+        let as_str = match self {
+            String(s) => s,
+            Number(n) => &format!("{:?}", n),
+            Null => &"null".to_string(),
+        };
+        write!(f, "{}", as_str)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Token {
     token_type: TokenType,
     lexeme: String,
-    literal: Option<String>,
+    literal: Option<Literal>,
     line: usize,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, lexeme: &str, literal: Option<String>, line: usize) -> Self {
+    pub fn new(token_type: TokenType, lexeme: &str, literal: Option<Literal>, line: usize) -> Self {
         Self { token_type, lexeme: lexeme.to_string(), literal, line }
     }
 }
@@ -119,7 +138,7 @@ impl std::fmt::Display for Token {
             "{} {} {}",
             self.token_type,
             self.lexeme.clone(),
-            self.literal.clone().unwrap_or("null".to_string())
+            self.literal.clone().unwrap_or(Literal::Null)
         )
     }
 }

@@ -1,5 +1,8 @@
-use crate::lexer::{Token, TokenType};
+use crate::lexer::{Literal, Token, TokenType};
 use crate::reporter::Reporter;
+use std::str::FromStr;
+
+const NULL_C: char = '\0';
 
 pub struct Scanner {
     source: String,
@@ -75,7 +78,7 @@ impl Scanner {
             '/' => {
                 if self.match_char('/') {
                     // It's a comment - We skip until the end of the line.
-                    while self.peek() != Some('\n') && !self.is_at_end() {
+                    while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
                 } else {
@@ -88,14 +91,39 @@ impl Scanner {
             ' ' => {},
             '\r' => {},
             '\t' => {},
-            _ => self.reporter.error(self.line, &format!("Unexpected character: {char}")),
+            _ => {
+                if self.is_digit(char) {
+                    self.number();
+                } else {
+                    self.reporter.error(self.line, &format!("Unexpected character: {char}"))
+                }
+            },
         }
     }
 
+    fn number(&mut self) {
+        while self.is_digit(self.peek()) {
+            self.advance();
+        }
+
+        // Look for a fractional part.
+        if self.peek() == '.' && self.is_digit(self.peek_next()) {
+            // Consume the "."
+            self.advance();
+        }
+
+        // Read the rest of the digits
+        while self.is_digit(self.peek()) {
+            self.advance();
+        }
+        let as_num = f64::from_str(&self.source[self.start..self.current]).unwrap();
+        self.add_token(TokenType::Number, Some(Literal::Number(as_num)));
+    }
+
     fn string(&mut self) {
-        while self.peek().is_some() && self.peek() != Some('"') && !self.is_at_end() {
+        while self.peek() != '"' && !self.is_at_end() {
             // Our string are multiline
-            if self.peek() == '\n'.into() {
+            if self.peek() == '\n' {
                 self.line += 1;
             }
             self.advance();
@@ -111,14 +139,12 @@ impl Scanner {
 
         // Trim the surrounding quotes.
         let value = &self.source[self.start + 1..self.current - 1];
-        self.add_token(TokenType::String, Some(value.to_string()));
+        self.add_token(TokenType::String, Some(Literal::String(value.to_string())));
     }
 
     /// Only consume a character in `self.source` if it matches the `expected` character.
     fn match_char(&mut self, expected: char) -> bool {
-        if self.is_at_end() {
-            false
-        } else if self.source.chars().nth(self.current).unwrap() != expected {
+        if self.is_at_end() || self.nth(self.current) != expected {
             false
         } else {
             self.current += 1;
@@ -127,13 +153,31 @@ impl Scanner {
     }
 
     /// Get the next character in `self.source` without consuming it.
-    fn peek(&self) -> Option<char> {
+    fn peek(&self) -> char {
         if self.is_at_end() {
-            None
+            NULL_C
         } else {
-            self.source.chars().nth(self.current)
+            self.nth(self.current)
         }
     }
+
+    /// Get the character after the next character in `self.source` without consuming it.
+    fn peek_next(&self) -> char {
+        if self.current + 1 >= self.source.len() {
+            NULL_C
+        } else {
+            self.nth(self.current + 1)
+        }
+    }
+
+    fn nth(&self, n: usize) -> char {
+        char::from(self.source.as_bytes()[n])
+    }
+
+    fn is_digit(&self, c: char) -> bool {
+        c.is_numeric()
+    }
+
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
@@ -151,7 +195,7 @@ impl Scanner {
         self.add_token(t, None)
     }
 
-    fn add_token(&mut self, t: TokenType, literal: Option<String>) {
+    fn add_token(&mut self, t: TokenType, literal: Option<Literal>) {
         let text = self.source[self.start..self.current].to_string();
         self.tokens.push(Token::new(t, &text, literal, self.line))
     }
@@ -241,8 +285,30 @@ mod test {
         assert_eq!(
             tokens,
             vec![
-                Token::new(TokenType::String, "\"hello\nworld\"", Some("hello\nworld".to_string()), 2),
+                Token::new(
+                    TokenType::String,
+                    "\"hello\nworld\"",
+                    Some(Literal::String("hello\nworld".to_string())),
+                    2
+                ),
                 Token::new(TokenType::Eof, "", None, 2)
+            ]
+        );
+    }
+
+    #[test]
+    fn scans_numbers() {
+        let source = "1\n2.0\n03\n.0".to_string();
+        let tokens = scan(&source);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenType::Number, "1", Some(Literal::Number(1.0)), 1),
+                Token::new(TokenType::Number, "2.0", Some(Literal::Number(2.0)), 2),
+                Token::new(TokenType::Number, "03", Some(Literal::Number(3.0)), 3),
+                Token::new(TokenType::Dot, ".", None, 4),
+                Token::new(TokenType::Number, "0", Some(Literal::Number(0.0)), 4),
+                Token::new(TokenType::Eof, "", None, 4)
             ]
         );
     }
