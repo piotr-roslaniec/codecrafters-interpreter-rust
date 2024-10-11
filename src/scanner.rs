@@ -98,11 +98,7 @@ impl Scanner {
 
     /// Get the next character in `self.source` without consuming it.
     fn peek(&self) -> char {
-        if self.is_at_end() {
-            '\0'
-        } else {
-            self.source.chars().nth(self.current).unwrap()
-        }
+        self.source.chars().nth(self.current).unwrap_or('\0')
     }
 
     fn is_at_end(&self) -> bool {
@@ -111,7 +107,7 @@ impl Scanner {
 
     /// Consume the next character in `self.source`.
     fn advance(&mut self) -> char {
-        let char = self.source.chars().nth(self.current).unwrap();
+        let char = self.source.chars().nth(self.current).unwrap_or('\0');
         self.current += 1;
         char
     }
@@ -197,6 +193,18 @@ mod test {
                 Token::new(TokenType::LessEqual, "<=", None, 1),
                 Token::new(TokenType::EqualEqual, "==", None, 2),
                 Token::new(TokenType::Eof, "", None, 2)
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_unicode_chars() {
+        let source = "///Unicode:£§᯽☺♣".to_string();
+        let tokens = scan(&source);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenType::Eof, "", None, 1)
             ]
         );
     }
