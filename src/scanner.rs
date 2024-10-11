@@ -37,7 +37,14 @@ impl Scanner {
     fn scan_token(&mut self) {
         use crate::lexer::TokenType::*;
 
+        let current = self.current;
         let char = self.advance();
+        if char.is_none() {
+            self.reporter.error(self.line, &format!("Invalid UTF-8 codepoint at: {}", current));
+            return;
+        }
+
+        let char = char.unwrap();
         match char {
             '(' => self.add_char_token(LeftParen),
             ')' => self.add_char_token(RightParen),
@@ -52,36 +59,59 @@ impl Scanner {
             '!' => {
                 let token = if self.match_char('=') { BangEqual } else { Bang };
                 self.add_char_token(token);
-            }
+            },
             '=' => {
                 let token = if self.match_char('=') { EqualEqual } else { Equal };
                 self.add_char_token(token);
-            }
+            },
             '<' => {
                 let token = if self.match_char('=') { LessEqual } else { Less };
                 self.add_char_token(token);
-            }
+            },
             '>' => {
                 let token = if self.match_char('=') { GreaterEqual } else { Greater };
                 self.add_char_token(token);
-            }
+            },
             '/' => {
                 if self.match_char('/') {
                     // It's a comment - We skip until the end of the line.
-                    while self.peek() != '\n' && !self.is_at_end() {
+                    while self.peek() != Some('\n') && !self.is_at_end() {
                         self.advance();
                     }
                 } else {
                     self.add_char_token(Slash);
                 }
-            }
+            },
             '\n' => self.line += 1,
+            '"' => self.string(),
             // Ignore whitespace.
-            ' ' => {}
-            '\r' => {}
-            '\t' => {}
+            ' ' => {},
+            '\r' => {},
+            '\t' => {},
             _ => self.reporter.error(self.line, &format!("Unexpected character: {char}")),
         }
+    }
+
+    fn string(&mut self) {
+        while self.peek().is_some() && self.peek() != Some('"') && !self.is_at_end() {
+            // Our string are multiline
+            if self.peek() == '\n'.into() {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            self.reporter.error(self.line, "Unterminated string.");
+            return;
+        }
+
+        // The closing ".
+        self.advance();
+
+        // Trim the surrounding quotes.
+        let value = &self.source[self.start + 1..self.current - 1];
+        self.add_token(TokenType::String, Some(value.to_string()));
     }
 
     /// Only consume a character in `self.source` if it matches the `expected` character.
@@ -97,17 +127,22 @@ impl Scanner {
     }
 
     /// Get the next character in `self.source` without consuming it.
-    fn peek(&self) -> char {
-        self.source.chars().nth(self.current).unwrap_or('\0')
+    fn peek(&self) -> Option<char> {
+        if self.is_at_end() {
+            None
+        } else {
+            self.source.chars().nth(self.current)
+        }
     }
-
     fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
     /// Consume the next character in `self.source`.
-    fn advance(&mut self) -> char {
-        let char = self.source.chars().nth(self.current).unwrap_or('\0');
+    fn advance(&mut self) -> Option<char> {
+        // The next value in `self.source` may or may not be a valid Unicode codepoint
+        // See: https://users.rust-lang.org/t/should-you-really-use-chars-for-characters-in-a-string/71459/3
+        let char = self.source.chars().nth(self.current);
         self.current += 1;
         char
     }
@@ -168,12 +203,7 @@ mod test {
     fn scans_comments() {
         let source = "// this is a comment ()".to_string();
         let tokens = scan(&source);
-        assert_eq!(
-            tokens,
-            vec![
-                Token::new(TokenType::Eof, "", None, 1)
-            ]
-        );
+        assert_eq!(tokens, vec![Token::new(TokenType::Eof, "", None, 1)]);
     }
     #[test]
     fn scans_operators() {
@@ -201,10 +231,18 @@ mod test {
     fn ignores_unicode_chars() {
         let source = "///Unicode:£§᯽☺♣".to_string();
         let tokens = scan(&source);
+        assert_eq!(tokens, vec![Token::new(TokenType::Eof, "", None, 1)]);
+    }
+
+    #[test]
+    fn scans_multiline_string() {
+        let source = "\"hello\nworld\"".to_string();
+        let tokens = scan(&source);
         assert_eq!(
             tokens,
             vec![
-                Token::new(TokenType::Eof, "", None, 1)
+                Token::new(TokenType::String, "\"hello\nworld\"", Some("hello\nworld".to_string()), 2),
+                Token::new(TokenType::Eof, "", None, 2)
             ]
         );
     }
