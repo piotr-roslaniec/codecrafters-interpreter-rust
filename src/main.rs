@@ -18,10 +18,7 @@ impl Lox {
     pub fn new(source: &str) -> Self {
         let mut scanner = Scanner::new(source);
         scanner.scan_tokens();
-        Self {
-            reporter: scanner.reporter,
-            tokens: scanner.tokens,
-        }
+        Self { reporter: scanner.reporter, tokens: scanner.tokens }
     }
 
     pub fn run(&self) -> String {
@@ -54,7 +51,7 @@ fn main() {
             if lox.had_error() {
                 std::process::exit(65);
             }
-        }
+        },
         "run" => {
             let file = read_file(filename);
             let lox = Lox::new(&file);
@@ -63,7 +60,7 @@ fn main() {
                 std::process::exit(65);
             }
             println!("< {}", result);
-        }
+        },
         "run-prompt" => loop {
             println!(">");
             let stdin = io::stdin();
@@ -79,7 +76,7 @@ fn main() {
         },
         _ => {
             eprintln!("Unknown command: {}", command);
-        }
+        },
     }
 }
 

@@ -16,7 +16,7 @@ pub enum TokenType {
     Star,
 
     // One or two character tokens.
-    Band,
+    Bang,
     BangEqual,
     Equal,
     EqualEqual,
@@ -65,7 +65,7 @@ impl std::fmt::Display for TokenType {
             TokenType::Semicolon => "SEMICOLON",
             TokenType::Slash => "SLASH",
             TokenType::Star => "STAR",
-            TokenType::Band => "BAND",
+            TokenType::Bang => "BAND",
             TokenType::BangEqual => "BANG_EQUAL",
             TokenType::Equal => "EQUAL",
             TokenType::EqualEqual => "EQUAL_EQUAL",
@@ -108,12 +108,7 @@ pub struct Token {
 
 impl Token {
     pub fn new(token_type: TokenType, lexeme: &str, literal: Option<String>, line: usize) -> Self {
-        Self {
-            token_type,
-            lexeme: lexeme.to_string(),
-            literal,
-            line,
-        }
+        Self { token_type, lexeme: lexeme.to_string(), literal, line }
     }
 }
 
