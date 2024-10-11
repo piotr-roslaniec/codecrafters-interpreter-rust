@@ -85,7 +85,7 @@ impl std::fmt::Display for TokenType {
             TokenType::If => "IF",
             TokenType::Nil => "NIL",
             TokenType::Or => "OR",
-            TokenType::Print => "PPRINT",
+            TokenType::Print => "PRINT",
             TokenType::Return => "RETURN",
             TokenType::Super => "SUPER",
             TokenType::This => "THIS",
