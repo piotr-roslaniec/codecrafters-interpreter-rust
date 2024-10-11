@@ -1,8 +1,28 @@
+use std::collections::HashMap;
 use crate::lexer::{Literal, Token, TokenType};
 use crate::reporter::Reporter;
 use std::str::FromStr;
+use std::string::ToString;
 
 const NULL_C: char = '\0';
+const KEYWORDS: HashMap<String, TokenType> = HashMap::from([
+    ("and".to_string(), TokenType::And),
+    ("class".to_string(), TokenType::Class),
+    ("else".to_string(), TokenType::Else),
+    ("false".to_string(), TokenType::False),
+    ("for".to_string(), TokenType::For),
+    ("fun".to_string(), TokenType::Fun),
+    ("if".to_string(), TokenType::If),
+    ("nil".to_string(), TokenType::Nil),
+    ("or".to_string(), TokenType::Or),
+    ("print".to_string(), TokenType::Print),
+    ("return".to_string(), TokenType::Return),
+    ("super".to_string(), TokenType::Super),
+    ("this".to_string(), TokenType::This),
+    ("true".to_string(), TokenType::True),
+    ("var".to_string(), TokenType::Var),
+    ("while".to_string(), TokenType::While),
+]);
 
 pub struct Scanner {
     source: String,
@@ -93,12 +113,30 @@ impl Scanner {
             '\t' => {},
             _ => {
                 if self.is_digit(char) {
-                    self.number();
-                } else {
+                    self.number(); {}
+                } else if self.is_alpha(char) {
+                    self.indentifier()
+                }
+                else {
                     self.reporter.error(self.line, &format!("Unexpected character: {char}"))
                 }
             },
         }
+    }
+
+    fn is_alpha(&self, c: char) -> bool {
+        c.is_alphanumeric() || c == '_'
+    }
+
+    fn is_alphanumeric(&self, c: char) -> bool {
+        self.is_alpha(c) || self.is_digit(c)
+    }
+
+    fn identifier(&mut self) {
+        while self.is_alphanumeric(self.peek()) {
+            self.advance();
+        }
+        self.add_token(TokenType::Identifier, None);
     }
 
     fn number(&mut self) {
