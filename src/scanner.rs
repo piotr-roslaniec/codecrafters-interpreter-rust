@@ -1,28 +1,31 @@
-use std::collections::HashMap;
 use crate::lexer::{Literal, Token, TokenType};
 use crate::reporter::Reporter;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::string::ToString;
 
 const NULL_C: char = '\0';
-const KEYWORDS: HashMap<String, TokenType> = HashMap::from([
-    ("and".to_string(), TokenType::And),
-    ("class".to_string(), TokenType::Class),
-    ("else".to_string(), TokenType::Else),
-    ("false".to_string(), TokenType::False),
-    ("for".to_string(), TokenType::For),
-    ("fun".to_string(), TokenType::Fun),
-    ("if".to_string(), TokenType::If),
-    ("nil".to_string(), TokenType::Nil),
-    ("or".to_string(), TokenType::Or),
-    ("print".to_string(), TokenType::Print),
-    ("return".to_string(), TokenType::Return),
-    ("super".to_string(), TokenType::Super),
-    ("this".to_string(), TokenType::This),
-    ("true".to_string(), TokenType::True),
-    ("var".to_string(), TokenType::Var),
-    ("while".to_string(), TokenType::While),
-]);
+static KEYWORDS: Lazy<HashMap<&'static str, TokenType>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("and", TokenType::And);
+    m.insert("class", TokenType::Class);
+    m.insert("else", TokenType::Else);
+    m.insert("false", TokenType::False);
+    m.insert("for", TokenType::For);
+    m.insert("fun", TokenType::Fun);
+    m.insert("if", TokenType::If);
+    m.insert("nil", TokenType::Nil);
+    m.insert("or", TokenType::Or);
+    m.insert("print", TokenType::Print);
+    m.insert("return", TokenType::Return);
+    m.insert("super", TokenType::Super);
+    m.insert("this", TokenType::This);
+    m.insert("true", TokenType::True);
+    m.insert("var", TokenType::Var);
+    m.insert("while", TokenType::While);
+    m
+});
 
 pub struct Scanner {
     source: String,
@@ -113,11 +116,10 @@ impl Scanner {
             '\t' => {},
             _ => {
                 if self.is_digit(char) {
-                    self.number(); {}
+                    self.number();
                 } else if self.is_alpha(char) {
-                    self.indentifier()
-                }
-                else {
+                    self.identifier()
+                } else {
                     self.reporter.error(self.line, &format!("Unexpected character: {char}"))
                 }
             },
@@ -136,7 +138,10 @@ impl Scanner {
         while self.is_alphanumeric(self.peek()) {
             self.advance();
         }
-        self.add_token(TokenType::Identifier, None);
+
+        let text = &self.source[self.start..self.current];
+        let token_type = *KEYWORDS.get(text).unwrap_or(&TokenType::Identifier);
+        self.add_token(token_type, None);
     }
 
     fn number(&mut self) {
@@ -347,6 +352,21 @@ mod test {
                 Token::new(TokenType::Dot, ".", None, 4),
                 Token::new(TokenType::Number, "0", Some(Literal::Number(0.0)), 4),
                 Token::new(TokenType::Eof, "", None, 4)
+            ]
+        );
+    }
+
+    #[test]
+    fn scans_identifiers() {
+        let source = "foo bar _hello".to_string();
+        let tokens = scan(&source);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenType::Identifier, "foo", None, 1),
+                Token::new(TokenType::Identifier, "bar", None, 1),
+                Token::new(TokenType::Identifier, "_hello", None, 1),
+                Token::new(TokenType::Eof, "", None, 1)
             ]
         );
     }
