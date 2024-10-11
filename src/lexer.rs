@@ -65,7 +65,7 @@ impl std::fmt::Display for TokenType {
             TokenType::Semicolon => "SEMICOLON",
             TokenType::Slash => "SLASH",
             TokenType::Star => "STAR",
-            TokenType::Bang => "BAND",
+            TokenType::Bang => "BANG",
             TokenType::BangEqual => "BANG_EQUAL",
             TokenType::Equal => "EQUAL",
             TokenType::EqualEqual => "EQUAL_EQUAL",
