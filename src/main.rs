@@ -25,8 +25,8 @@ fn main() {
         },
         "parse" => {
             let file = fs::read_to_string(filename).unwrap();
-            let lox = Lox::new(&file);
-            let result = lox.run().unwrap();
+            let mut lox = Lox::new(&file);
+            let result = lox.run().unwrap_or("".to_string());
             if lox.had_error() {
                 std::process::exit(65);
             }
@@ -34,7 +34,7 @@ fn main() {
         },
         "run" => {
             let file = fs::read_to_string(filename).unwrap();
-            let lox = Lox::new(&file);
+            let mut lox = Lox::new(&file);
             let result = lox.run().unwrap();
             if lox.had_error() {
                 std::process::exit(65);
@@ -50,7 +50,7 @@ fn main() {
             if input == *"" {
                 break;
             }
-            let lox = Lox::new(&input);
+            let mut lox = Lox::new(&input);
             let result = lox.run().unwrap();
             println!("< {}", result);
         },

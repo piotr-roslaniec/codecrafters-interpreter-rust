@@ -16,10 +16,11 @@ impl Lox {
         Self { reporter: scanner.reporter, tokens: scanner.tokens }
     }
 
-    pub fn run(&self) -> Option<String> {
+    pub fn run(&mut self) -> Option<String> {
         let mut parser = Parser::new(&self.tokens);
         let expr = parser.parse();
         if parser.had_error() {
+            self.reporter = self.reporter.merge(&parser.reporter);
             None
         } else {
             let printer = AstPrinter::new();

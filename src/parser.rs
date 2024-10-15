@@ -7,7 +7,7 @@ use anyhow::{anyhow, Error};
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    reporter: Reporter,
+    pub(crate) reporter: Reporter,
 }
 
 impl Parser {
