@@ -91,7 +91,6 @@ impl Parser {
         if self.matches(vec![TokenType::Nil]) {
             return Ok(Expression::Literal(Some(Literal::String("nil".to_string()))));
         }
-
         if self.matches(vec![TokenType::Number, TokenType::String]) {
             return Ok(Expression::Literal(self.previous().literal));
         }
