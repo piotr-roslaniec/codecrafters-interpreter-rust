@@ -103,6 +103,7 @@ pub enum Literal {
     String(String),
     Number(f64),
     Null,
+    Boolean(bool),
 }
 
 impl std::fmt::Display for Literal {
@@ -112,17 +113,18 @@ impl std::fmt::Display for Literal {
             String(s) => s,
             Number(n) => &format!("{:?}", n),
             Null => &"null".to_string(),
+            Boolean(b) => &b.to_string(),
         };
         write!(f, "{}", as_str)
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<Literal>,
-    line: usize,
+    pub(crate) token_type: TokenType,
+    pub lexeme: String,
+    pub(crate) literal: Option<Literal>,
+    pub line: usize,
 }
 
 impl Token {

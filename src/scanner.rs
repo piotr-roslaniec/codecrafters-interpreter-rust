@@ -66,7 +66,11 @@ impl Scanner {
         let current = self.current;
         let char = self.advance();
         if char.is_none() {
-            self.reporter.error(self.line, &format!("Invalid UTF-8 codepoint at: {}", current));
+            self.reporter.report(
+                self.line,
+                "",
+                &format!("Invalid UTF-8 codepoint at: {}", current),
+            );
             return;
         }
 
@@ -120,7 +124,7 @@ impl Scanner {
                 } else if self.is_alpha(char) {
                     self.identifier()
                 } else {
-                    self.reporter.error(self.line, &format!("Unexpected character: {char}"))
+                    self.reporter.report(self.line, "", &format!("Unexpected character: {char}"))
                 }
             },
         }
@@ -173,7 +177,7 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            self.reporter.error(self.line, "Unterminated string.");
+            self.reporter.report(self.line, "", "Unterminated string.");
             return;
         }
 
