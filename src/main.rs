@@ -1,6 +1,5 @@
 use codecrafters_interpreter::lox::Lox;
-use std::io::BufRead;
-use std::{env, fs, io};
+use std::{env, fs};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -41,18 +40,14 @@ fn main() {
             }
             println!("< {}", result);
         },
-        "run-prompt" => loop {
-            println!(">");
-            let stdin = io::stdin();
-            let mut handle = stdin.lock();
-            let mut input = String::new();
-            handle.read_line(&mut input).unwrap();
-            if input == *"" {
-                break;
+        "evaluate" => {
+            let file = fs::read_to_string(filename).unwrap();
+            let mut lox = Lox::new(&file);
+            if lox.had_error() {
+                std::process::exit(65);
             }
-            let mut lox = Lox::new(&input);
-            let result = lox.run().unwrap();
-            println!("< {}", result);
+            let result = lox.evaluate().map(|l| l.to_string()).unwrap_or("".to_string());
+            println!("{}", result);
         },
         _ => {
             eprintln!("Unknown command: {}", command);

@@ -1,4 +1,6 @@
 use crate::lexer::{Token, TokenType};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct Reporter {
     pub errors: Vec<String>,
@@ -11,9 +13,14 @@ impl Default for Reporter {
 }
 
 impl Reporter {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self { errors: Vec::new() }
     }
+
+    pub fn shared() -> SharedReporter {
+        Rc::new(RefCell::new(Reporter::new()))
+    }
+
     pub fn error(&mut self, token: Token, message: &str) {
         if token.token_type == TokenType::Eof {
             self.report(token.line, " at the end", message)
@@ -27,8 +34,6 @@ impl Reporter {
         eprintln!("{}", error);
         self.errors.push(error)
     }
-
-    pub fn merge(&self, other: &Self) -> Self {
-        Self { errors: [self.errors.clone(), other.errors.clone()].concat() }
-    }
 }
+
+pub type SharedReporter = Rc<RefCell<Reporter>>;

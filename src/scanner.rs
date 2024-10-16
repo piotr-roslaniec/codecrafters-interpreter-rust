@@ -1,5 +1,5 @@
 use crate::lexer::{Literal, Token, TokenType};
-use crate::reporter::Reporter;
+use crate::reporter::SharedReporter;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -29,7 +29,7 @@ static KEYWORDS: Lazy<HashMap<&'static str, TokenType>> = Lazy::new(|| {
 
 pub struct Scanner {
     source: String,
-    pub reporter: Reporter,
+    pub reporter: SharedReporter,
     pub tokens: Vec<Token>,
     start: usize,
     current: usize,
@@ -37,10 +37,10 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(source: &str) -> Self {
+    pub fn new(source: &str, reporter: SharedReporter) -> Self {
         Self {
             source: source.to_string(),
-            reporter: Reporter::new(),
+            reporter,
             tokens: Vec::new(),
             start: 0,
             current: 0,
@@ -66,7 +66,7 @@ impl Scanner {
         let current = self.current;
         let char = self.advance();
         if char.is_none() {
-            self.reporter.report(
+            self.reporter.borrow_mut().report(
                 self.line,
                 "",
                 &format!("Invalid UTF-8 codepoint at: {}", current),
@@ -75,58 +75,61 @@ impl Scanner {
         }
 
         let char = char.unwrap();
-        match char {
-            '(' => self.add_char_token(LeftParen),
-            ')' => self.add_char_token(RightParen),
-            '{' => self.add_char_token(LeftBrace),
-            '}' => self.add_char_token(RightBrace),
-            ',' => self.add_char_token(Comma),
-            '.' => self.add_char_token(Dot),
-            '-' => self.add_char_token(Minus),
-            '+' => self.add_char_token(Plus),
-            ';' => self.add_char_token(Semicolon),
-            '*' => self.add_char_token(Star),
-            '!' => {
-                let token = if self.match_char('=') { BangEqual } else { Bang };
-                self.add_char_token(token);
-            },
-            '=' => {
-                let token = if self.match_char('=') { EqualEqual } else { Equal };
-                self.add_char_token(token);
-            },
-            '<' => {
-                let token = if self.match_char('=') { LessEqual } else { Less };
-                self.add_char_token(token);
-            },
-            '>' => {
-                let token = if self.match_char('=') { GreaterEqual } else { Greater };
-                self.add_char_token(token);
-            },
+        let token_type = match char {
+            '(' => Some(LeftParen),
+            ')' => Some(RightParen),
+            '{' => Some(LeftBrace),
+            '}' => Some(RightBrace),
+            ',' => Some(Comma),
+            '.' => Some(Dot),
+            '-' => Some(Minus),
+            '+' => Some(Plus),
+            ';' => Some(Semicolon),
+            '*' => Some(Star),
+            '!' => Some(if self.match_char('=') { BangEqual } else { Bang }),
+            '=' => Some(if self.match_char('=') { EqualEqual } else { Equal }),
+            '<' => Some(if self.match_char('=') { LessEqual } else { Less }),
+            '>' => Some(if self.match_char('=') { GreaterEqual } else { Greater }),
             '/' => {
                 if self.match_char('/') {
-                    // It's a comment - We skip until the end of the line.
+                    // Skip until the end of the line for comments
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+                    None
                 } else {
-                    self.add_char_token(Slash);
+                    Some(Slash)
                 }
             },
-            '\n' => self.line += 1,
-            '"' => self.string(),
-            // Ignore whitespace.
-            ' ' => {},
-            '\r' => {},
-            '\t' => {},
+            '\n' => {
+                self.line += 1;
+                None
+            },
+            ' ' | '\r' | '\t' => None, // Ignore whitespace
+            '"' => {
+                self.string();
+                None
+            },
             _ => {
                 if self.is_digit(char) {
                     self.number();
+                    None
                 } else if self.is_alpha(char) {
-                    self.identifier()
+                    self.identifier();
+                    None
                 } else {
-                    self.reporter.report(self.line, "", &format!("Unexpected character: {char}"))
+                    self.reporter.borrow_mut().report(
+                        self.line,
+                        "",
+                        &format!("Unexpected character: {char}"),
+                    );
+                    None
                 }
             },
+        };
+
+        if let Some(token) = token_type {
+            self.add_char_token(token);
         }
     }
 
@@ -163,7 +166,8 @@ impl Scanner {
         while self.is_digit(self.peek()) {
             self.advance();
         }
-        let as_num = f64::from_str(&self.source[self.start..self.current]).unwrap();
+        let as_num = f64::from_str(&self.source[self.start..self.current])
+            .expect("Failed to parse number from source");
         self.add_token(TokenType::Number, Some(Literal::Number(as_num)));
     }
 
@@ -177,7 +181,7 @@ impl Scanner {
         }
 
         if self.is_at_end() {
-            self.reporter.report(self.line, "", "Unterminated string.");
+            self.reporter.borrow_mut().report(self.line, "", "Unterminated string.");
             return;
         }
 
@@ -244,16 +248,19 @@ impl Scanner {
 
     fn add_token(&mut self, t: TokenType, literal: Option<Literal>) {
         let text = self.source[self.start..self.current].to_string();
-        self.tokens.push(Token::new(t, &text, literal, self.line))
+        let token = Token::new(t, &text, literal, self.line);
+        self.tokens.push(token);
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::reporter::Reporter;
 
     fn scan(source: &str) -> Vec<Token> {
-        let mut scanner = Scanner::new(source);
+        let reporter = Reporter::shared();
+        let mut scanner = Scanner::new(source, reporter);
         scanner.scan_tokens();
         scanner.tokens
     }
@@ -393,10 +400,11 @@ mod test {
     #[test]
     fn makes_errors_for_unexpected_characters() {
         let source = ",.$(#";
-        let mut scanner = Scanner::new(source);
+        let reporter = Reporter::shared();
+        let mut scanner = Scanner::new(source, reporter);
         scanner.scan_tokens();
         assert_eq!(
-            scanner.reporter.errors,
+            scanner.reporter.borrow().errors,
             vec![
                 "[line 1] Error: Unexpected character: $",
                 "[line 1] Error: Unexpected character: #"

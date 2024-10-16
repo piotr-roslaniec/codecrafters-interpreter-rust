@@ -1,22 +1,18 @@
 use crate::ast::Expression;
 use crate::lexer::{Literal, Token, TokenType};
-use crate::reporter::Reporter;
+use crate::reporter::SharedReporter;
 use crate::Result;
 use anyhow::{anyhow, Error};
 
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    pub(crate) reporter: Reporter,
+    reporter: SharedReporter,
 }
 
 impl Parser {
-    pub fn new(tokens: &[Token]) -> Self {
-        Self { tokens: tokens.to_vec(), current: 0, reporter: Reporter::new() }
-    }
-
-    pub fn had_error(&self) -> bool {
-        !self.reporter.errors.is_empty()
+    pub fn new(tokens: &[Token], reporter: &SharedReporter) -> Self {
+        Self { tokens: tokens.to_vec(), current: 0, reporter: reporter.clone() }
     }
 
     pub fn parse(&mut self) -> Expression {
@@ -115,7 +111,7 @@ impl Parser {
     }
 
     fn error(&mut self, token: Token, message: &str) -> Error {
-        self.reporter.error(token, message);
+        self.reporter.borrow_mut().error(token, message);
         anyhow!("Parser error")
     }
 

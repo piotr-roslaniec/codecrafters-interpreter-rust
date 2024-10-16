@@ -108,14 +108,12 @@ pub enum Literal {
 
 impl std::fmt::Display for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use Literal::*;
-        let as_str = match self {
-            String(s) => s,
-            Number(n) => &format!("{:?}", n),
-            Null => &"null".to_string(),
-            Boolean(b) => &b.to_string(),
-        };
-        write!(f, "{}", as_str)
+        match self {
+            Literal::String(s) => write!(f, "{}", s),
+            Literal::Number(n) => write!(f, "{:?}", n),
+            Literal::Null => write!(f, "null"),
+            Literal::Boolean(b) => write!(f, "{}", b),
+        }
     }
 }
 
@@ -139,8 +137,8 @@ impl std::fmt::Display for Token {
             f,
             "{} {} {}",
             self.token_type,
-            self.lexeme.clone(),
-            self.literal.clone().unwrap_or(Literal::Null)
+            self.lexeme,
+            self.literal.as_ref().unwrap_or(&Literal::Null)
         )
     }
 }

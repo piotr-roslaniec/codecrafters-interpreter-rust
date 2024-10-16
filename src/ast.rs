@@ -1,11 +1,12 @@
 use crate::lexer::{Literal, Token};
 
-trait Visitor<T> {
-    fn visit(&self, expr: &Expression) -> T;
+pub trait Visitor {
+    type Output;
+    fn visit(&self, expr: &Expression) -> Self::Output;
 }
 
 type Operator = Token;
-type ObjectValue = Literal;
+pub type ObjectValue = Literal;
 
 pub enum Expression {
     Binary(Box<Expression>, Operator, Box<Expression>),
@@ -15,7 +16,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn accept(&self, visitor: &impl Visitor<String>) -> String {
+    fn accept(&self, visitor: &impl Visitor<Output = String>) -> String {
         visitor.visit(self)
     }
 }
@@ -38,12 +39,13 @@ impl AstPrinter {
     }
 
     pub fn print(&self, expr: &Expression) -> String {
-        self.visit(expr)
+        expr.accept(self)
     }
 }
 
-impl Visitor<String> for AstPrinter {
-    fn visit(&self, expr: &Expression) -> String {
+impl Visitor for AstPrinter {
+    type Output = String;
+    fn visit(&self, expr: &Expression) -> Self::Output {
         match expr {
             Expression::Binary(left, operator, right) => {
                 self.parenthesize(&operator.lexeme, vec![left.as_ref(), right.as_ref()])
@@ -66,7 +68,7 @@ mod test {
     fn prints_ast() {
         let printer = AstPrinter::new();
         let one = Expression::Literal(Some(Literal::Number(1.0)));
-        let plus = Token::new(TokenType::Number, "+", None, 1);
+        let plus = Token::new(TokenType::Plus, "+", None, 1);
         let two = Expression::Literal(Some(Literal::Number(2.0)));
         let expr = Expression::Binary(Box::new(one), plus, Box::new(two));
         assert_eq!(printer.visit(&expr), "(+ 1.0 2.0)".to_string())
